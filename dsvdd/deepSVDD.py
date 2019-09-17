@@ -40,6 +40,9 @@ class DeepSVDD:
         self.sess = tf.Session(config=config)
         self.sess.run(tf.global_variables_initializer())
 
+    def __del__(self):
+        self.sess.close()
+
     def fit(self, X, X_test, y_test, epochs=10):
         N = X.shape[0]
         BS = self.batch_size

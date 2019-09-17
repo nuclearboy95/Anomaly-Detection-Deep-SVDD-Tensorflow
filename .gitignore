@@ -1,2 +1,5 @@
 .idea/*
 *.pyc
+deep_svdd.egg-info/*
+dist/*
+build/*

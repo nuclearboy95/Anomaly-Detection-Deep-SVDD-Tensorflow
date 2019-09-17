@@ -86,5 +86,3 @@ def plot_most_normal_and_abnormal_images(X_test, score):
     axes[1].imshow(np.squeeze(image2))
     axes[1].set_title('Most abnormal images')
     axes[1].set_axis_off()
-
-    plt.show()
