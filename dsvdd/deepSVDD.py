@@ -2,8 +2,12 @@ import tensorflow as tf
 import numpy as np
 from math import ceil
 from sklearn.metrics import roc_auc_score
+from tensorflow import keras
+from tqdm import tqdm
 
 from .utils import task
+
+is_training = keras.backend.learning_phase()
 
 
 class DeepSVDD:
@@ -51,7 +55,7 @@ class DeepSVDD:
         self.sess.run(tf.global_variables_initializer())
         self._init_c(X)
 
-        for i_epoch in range(epochs):
+        for i_epoch in tqdm(range(epochs)):
             ind = np.random.permutation(N)
             x_train = X[ind]
             for i_batch in range(BN):
@@ -61,7 +65,7 @@ class DeepSVDD:
                     'loss': tf.reduce_mean(self.loss_op),
                     'dist': self.dist_op
                 }
-                results = self.sess.run(ops, feed_dict={self.x: x_batch})
+                results = self.sess.run(ops, feed_dict={self.x: x_batch, is_training: True})
 
                 if self.objective == 'soft-boundary' and i_epoch >= self.warm_up_n_epochs:
                     self.sess.run(tf.assign(self.R, self._get_R(results['dist'], self.nu)))
@@ -78,7 +82,7 @@ class DeepSVDD:
         scores = list()
         for i_batch in range(BN):
             x_batch = X[i_batch * BS: (i_batch + 1) * BS]
-            s_batch = self.sess.run(self.score_op, feed_dict={self.x: x_batch})
+            s_batch = self.sess.run(self.score_op, feed_dict={self.x: x_batch, is_training: False})
             scores.append(s_batch)
 
         return np.concatenate(scores)
@@ -92,7 +96,7 @@ class DeepSVDD:
             latent_sum = np.zeros(self.latent_op.shape[-1])
             for i_batch in range(BN):
                 x_batch = X[i_batch * BS: (i_batch + 1) * BS]
-                latent_v = self.sess.run(self.latent_op, feed_dict={self.x: x_batch})
+                latent_v = self.sess.run(self.latent_op, feed_dict={self.x: x_batch, is_training: False})
                 latent_sum += latent_v.sum(axis=0)
 
             c = latent_sum / N
