@@ -3,3 +3,4 @@
 deep_svdd.egg-info/*
 dist/*
 build/*
+ckpts/*

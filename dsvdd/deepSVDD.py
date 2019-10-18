@@ -7,12 +7,10 @@ from tqdm import tqdm
 
 from .utils import task
 
-is_training = keras.backend.learning_phase()
-
 
 class DeepSVDD:
     def __init__(self, keras_model, input_shape=(28, 28, 1), objective='one-class',
-                 nu=0.1, representation_dim=32, batch_size=128):
+                 nu=0.1, representation_dim=32, batch_size=128, lr=1e-3):
         self.represetation_dim = representation_dim
         self.objective = objective
         self.keras_model = keras_model
@@ -36,7 +34,7 @@ class DeepSVDD:
                 self.score_op = self.dist_op
                 self.loss_op = self.score_op
 
-            opt = tf.train.AdamOptimizer()
+            opt = tf.train.AdamOptimizer(lr)
             self.train_op = opt.minimize(self.loss_op)
 
         config = tf.ConfigProto()
@@ -47,7 +45,7 @@ class DeepSVDD:
     def __del__(self):
         self.sess.close()
 
-    def fit(self, X, X_test, y_test, epochs=10):
+    def fit(self, X, X_test, y_test, epochs=10, verbose=True):
         N = X.shape[0]
         BS = self.batch_size
         BN = int(ceil(N / BS))
@@ -55,34 +53,40 @@ class DeepSVDD:
         self.sess.run(tf.global_variables_initializer())
         self._init_c(X)
 
-        for i_epoch in tqdm(range(epochs)):
+        ops = {
+            'train': self.train_op,
+            'loss': tf.reduce_mean(self.loss_op),
+            'dist': self.dist_op
+        }
+        keras.backend.set_learning_phase(True)
+
+        for i_epoch in range(epochs):
             ind = np.random.permutation(N)
             x_train = X[ind]
-            for i_batch in range(BN):
+            g_batch = tqdm(range(BN)) if verbose else range(BN)
+            for i_batch in g_batch:
                 x_batch = x_train[i_batch * BS: (i_batch + 1) * BS]
-                ops = {
-                    'train': self.train_op,
-                    'loss': tf.reduce_mean(self.loss_op),
-                    'dist': self.dist_op
-                }
-                results = self.sess.run(ops, feed_dict={self.x: x_batch, is_training: True})
+                results = self.sess.run(ops, feed_dict={self.x: x_batch})
 
                 if self.objective == 'soft-boundary' and i_epoch >= self.warm_up_n_epochs:
                     self.sess.run(tf.assign(self.R, self._get_R(results['dist'], self.nu)))
 
             else:
-                pred = self.predict(X_test)  # pred: large->fail small->pass
-                auc = roc_auc_score(y_test, -pred)  # Y: 1->pass 0->fail
-                print('Epoch: %3d AUC: %.3f' % (i_epoch, auc))
+                if verbose:
+                    pred = self.predict(X_test)  # pred: large->fail small->pass
+                    auc = roc_auc_score(y_test, -pred)  # y_test: 1->pass 0->fail
+                    print('\rEpoch: %3d AUROC: %.3f' % (i_epoch, auc))
 
     def predict(self, X):
         N = X.shape[0]
         BS = self.batch_size
         BN = int(ceil(N / BS))
         scores = list()
+        keras.backend.set_learning_phase(False)
+
         for i_batch in range(BN):
             x_batch = X[i_batch * BS: (i_batch + 1) * BS]
-            s_batch = self.sess.run(self.score_op, feed_dict={self.x: x_batch, is_training: False})
+            s_batch = self.sess.run(self.score_op, feed_dict={self.x: x_batch})
             scores.append(s_batch)
 
         return np.concatenate(scores)
@@ -91,12 +95,13 @@ class DeepSVDD:
         N = X.shape[0]
         BS = self.batch_size
         BN = int(ceil(N / BS))
+        keras.backend.set_learning_phase(False)
 
         with task('1. Get output'):
             latent_sum = np.zeros(self.latent_op.shape[-1])
             for i_batch in range(BN):
                 x_batch = X[i_batch * BS: (i_batch + 1) * BS]
-                latent_v = self.sess.run(self.latent_op, feed_dict={self.x: x_batch, is_training: False})
+                latent_v = self.sess.run(self.latent_op, feed_dict={self.x: x_batch})
                 latent_sum += latent_v.sum(axis=0)
 
             c = latent_sum / N

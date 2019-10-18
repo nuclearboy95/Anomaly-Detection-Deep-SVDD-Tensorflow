@@ -13,14 +13,10 @@ def get_mnist(cls=1):
     mask = y_train == cls
 
     x_train = x_train[mask]
-    x_train = x_train / 255.
-    x_train = np.expand_dims(x_train, axis=-1)
-
-    x_test = x_test / 255.
-    x_test = np.expand_dims(x_test, axis=-1)
+    x_train = np.expand_dims(x_train / 255., axis=-1).astype(np.float32)
+    x_test = np.expand_dims(x_test / 255., axis=-1).astype(np.float32)
 
     y_test = (y_test == cls).astype(np.float32)
-
     return x_train, x_test, y_test
 
 
@@ -34,10 +30,8 @@ def get_cifar10(cls=1):
     mask = y_train == cls
 
     x_train = x_train[mask]
-    x_train = x_train / 255.
-
-    x_test = x_test / 255.
+    x_train = (x_train / 255.).astype(np.float32)
+    x_test = (x_test / 255.).astype(np.float32)
 
     y_test = (y_test == cls).astype(np.float32)
-
     return x_train, x_test, y_test
