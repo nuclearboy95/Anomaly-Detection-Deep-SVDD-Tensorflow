@@ -8,7 +8,7 @@ with open('requirements.txt', 'r') as f:
     ]
 
 setup(name='deep-svdd',
-      version='1.2',
+      version='1.3',
       url='https://github.com/nuclearboy95/Deep-SVDD-Tensorflow',
       license='MIT',
       author='Jihun Yi',
